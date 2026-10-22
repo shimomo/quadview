@@ -13,6 +13,7 @@ import {
   toggleSlot,
   videoCandidates,
   videoIdFromUrl,
+  withVideoStatus,
 } from "./logic.js";
 import {
   loadCache,
@@ -22,7 +23,7 @@ import {
   saveKey,
   savePresetUrls,
 } from "./storage.js";
-import { fetchStreams, SearchError } from "./youtube.js";
+import { fetchStreams, fetchVideos, SearchError } from "./youtube.js";
 
 const PASTED = "url:";
 const STATUS_TEXT = {
@@ -162,7 +163,10 @@ function renderButtons() {
       button.setAttribute("aria-disabled", String(!on && full));
       button.classList.toggle("stale", isStale(c, now));
       const when = button.lastElementChild;
-      if (c.start == null) {
+      if (c.state === "ended") {
+        when.className = "when";
+        when.textContent = "終了";
+      } else if (c.start == null) {
         when.className = "";
         when.textContent = "";
       } else if (isLive(c, now)) {
@@ -213,6 +217,24 @@ async function search(entry, preset, key) {
 }
 
 // Any failure stays inside this preset: its heading says so and the others go on.
+// With a key, the state of a video preset's videos (live, upcoming, ended); without one,
+// or if the lookup fails, the buttons simply carry no state.
+async function videoStatus(entry, candidates, key) {
+  const now = new Date();
+  let streams = loadCache(entry.url, now);
+  if (!streams) {
+    if (!key) return candidates;
+    try {
+      streams = await fetchVideos(key, candidates.map((c) => c.videoId));
+    } catch (e) {
+      if (!(e instanceof SearchError)) throw e;
+      return candidates;
+    }
+    saveCache(entry.url, streams, now);
+  }
+  return withVideoStatus(candidates, streams);
+}
+
 async function load(entry) {
   entry.status = "loading";
   entry.error = null;
@@ -223,11 +245,12 @@ async function load(entry) {
     if (!parsed.ok) throw new Error(parsed.error);
     const preset = parsed.preset;
     entry.name = preset.name;
+    entry.kind = preset.kind;
     entry.timezone = preset.timezone;
     entry.status = "ok";
     entry.candidates =
       preset.kind === "videos"
-        ? videoCandidates(preset, entry.url)
+        ? await videoStatus(entry, videoCandidates(preset, entry.url), loadKey())
         : await search(entry, preset, loadKey());
   } catch (e) {
     console.warn("preset failed:", entry.url, e);
@@ -321,7 +344,8 @@ function setUpSettings() {
   // A new key searches the channel presets again (tiles are not filled automatically).
   const researchChannels = () => {
     for (const entry of entries.values()) {
-      if (["nokey", "key", "quota", "network", "http"].includes(entry.status)) load(entry);
+      const failed = ["nokey", "key", "quota", "network", "http"].includes(entry.status);
+      if (failed || entry.kind === "videos") load(entry);
     }
   };
   document.getElementById("key-form").addEventListener("submit", (event) => {

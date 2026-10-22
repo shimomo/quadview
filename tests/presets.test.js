@@ -94,6 +94,7 @@ test("videoCandidates keys are unique per preset", () => {
     videoId: "aaaaaaaaaaa",
     start: null,
     title: "一の動画",
+    auto: false,
   });
   assert.equal(a[1].title, "");
   assert.notEqual(a[0].key, b[0].key);
@@ -101,4 +102,44 @@ test("videoCandidates keys are unique per preset", () => {
 
 test("parsePreset rejects an unknown timezone", () => {
   assert.equal(parsePreset({ ...CHANNEL_PRESET, timezone: "Mars/Olympus" }).ok, false);
+});
+
+test("video candidates are never auto-filled", () => {
+  const { preset } = parsePreset(VIDEO_PRESET);
+  assert.ok(videoCandidates(preset, "u").every((c) => c.auto === false));
+});
+
+test("withVideoStatus marks live, upcoming and ended videos", async () => {
+  const { withVideoStatus, isLive, isStale } = await import("../site/logic.js");
+  const { preset } = parsePreset({
+    name: "動画",
+    items: [
+      { label: "一", video_id: "aaaaaaaaaaa" },
+      { label: "二", video_id: "bbbbbbbbbbb" },
+      { label: "三", video_id: "ccccccccccc" },
+      { label: "四", video_id: "ddddddddddd" },
+    ],
+  });
+  const stream = (videoId, start, live, ended) => ({
+    videoId, channelId: "UC", title: "t", start, live, ended, embeddable: true,
+  });
+  const got = withVideoStatus(videoCandidates(preset, "u"), [
+    stream("aaaaaaaaaaa", "2026-08-19T00:00:00Z", true, false), // 24/7 live for months
+    stream("bbbbbbbbbbb", "2026-10-23T11:00:00Z", false, false),
+    stream("ccccccccccc", "2026-08-01T00:00:00Z", true, true),
+  ]);
+  assert.deepEqual(
+    got.map((c) => [c.label, c.state, c.start]),
+    [
+      ["一", "live", "2026-08-19T00:00:00Z"],
+      ["二", "upcoming", "2026-10-23T11:00:00Z"],
+      ["三", "ended", "2026-08-01T00:00:00Z"],
+      ["四", null, null],
+    ],
+  );
+  const now = new Date("2026-10-22T21:00:00+09:00");
+  assert.equal(isLive(got[0], now), true);
+  assert.equal(isStale(got[0], now), false); // known to be on air, however long
+  assert.equal(isLive(got[2], now), false);
+  assert.equal(isStale(got[2], now), true);
 });

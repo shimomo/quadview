@@ -137,3 +137,29 @@ test("search errors are typed", async () => {
   const broken = () => response(500, {});
   assert.equal(await kindOf(fakeApi({}, {}, { playlistItems: broken }).fetchImpl), "http");
 });
+
+test("fetchVideos asks videos only, 50 at a time", async () => {
+  const many = Object.fromEntries(
+    ids(60, "c").map((id) => [id, video(id, CH(1), { actualStartTime: "2026-08-19T00:00:00Z" })]),
+  );
+  const { calls, fetchImpl } = fakeApi({}, many);
+  const { fetchVideos } = await import("../site/youtube.js");
+  const got = await fetchVideos(KEY, Object.keys(many), fetchImpl);
+  assert.deepEqual(calls, ["videos", "videos"]);
+  assert.equal(got.length, 60);
+  assert.equal(got[0].live, true);
+});
+
+test("fetchVideos leaves plain videos out", async () => {
+  const videos = {
+    c0000000001: { id: "c0000000001", snippet: { channelId: CH(1), title: "plain" } },
+    c0000000002: video("c0000000002", CH(1), {
+      actualStartTime: "2026-08-19T00:00:00Z",
+      actualEndTime: "2026-10-20T00:00:00Z",
+    }),
+  };
+  const { fetchImpl } = fakeApi({}, videos);
+  const { fetchVideos } = await import("../site/youtube.js");
+  const got = await fetchVideos(KEY, Object.keys(videos), fetchImpl);
+  assert.deepEqual(got.map((s) => [s.videoId, s.ended]), [["c0000000002", true]]);
+});

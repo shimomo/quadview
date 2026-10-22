@@ -17,12 +17,18 @@ const VIDEO_ID =
 
 const startOf = (c) => new Date(c.start).getTime();
 
-// On air by the clock: whatever was on air when the list was made may have ended since.
+// On air by the clock. A video whose state was looked up says so itself (`state`).
 export function isLive(c, now) {
+  if (c.state === "live") return true;
+  if (c.state === "ended") return false;
   return c.start != null && startOf(c) <= now.getTime();
 }
 
+// Possibly over: started long ago, or known to have ended. A video known to be on air
+// (a 24/7 live) is not stale however long it has run.
 export function isStale(c, now) {
+  if (c.state === "live") return false;
+  if (c.state === "ended") return true;
   return c.start != null && now.getTime() - startOf(c) >= STALE_HOURS * HOUR;
 }
 
@@ -191,7 +197,20 @@ export function videoCandidates(preset, presetUrl) {
     videoId: item.videoId,
     start: null,
     title: item.title,
+    auto: false, // chosen by hand; a lookup below may tell its state, not fill a tile
   }));
+}
+
+// Video candidates with the state of their video, from youtube.js fetchVideos.
+// state: "live", "upcoming", "ended", or null (a plain video, or not looked up).
+export function withVideoStatus(candidates, streams) {
+  const byId = new Map(streams.map((s) => [s.videoId, s]));
+  return candidates.map((c) => {
+    const s = byId.get(c.videoId);
+    if (!s) return { ...c, state: null };
+    const state = s.ended ? "ended" : s.live ? "live" : "upcoming";
+    return { ...c, state, start: s.start };
+  });
 }
 
 // --- channel presets: streams to candidates -----------------------------------------------
