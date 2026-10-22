@@ -97,48 +97,55 @@ export const MAX_PAGES = 10;
 const VIDEO_ID_FORMAT = /^[\w-]{11}$/;
 const CHANNEL_ID_FORMAT = /^UC[\w-]{22}$/;
 
-class PresetError extends Error {}
+// Why a preset was refused: `message` is a key of i18n.js ("preset.*") and `params` fill
+// its placeholders, so the page can say it in the reader's language.
+class PresetError extends Error {
+  constructor(key, params = {}) {
+    super(key);
+    this.params = params;
+  }
+}
 
 const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStringArray = (v) => Array.isArray(v) && v.every((s) => typeof s === "string");
 
 function regex(source, where) {
-  if (typeof source !== "string") throw new PresetError(`${where} は文字列にしてください`);
+  if (typeof source !== "string") throw new PresetError("preset.regexNotString", { where });
   try {
     return new RegExp(source, "iu");
   } catch {
-    throw new PresetError(`${where} の正規表現が不正です: ${source}`);
+    throw new PresetError("preset.regexInvalid", { where, source });
   }
 }
 
 function parseSearch(search, labels) {
-  if (!isObject(search)) throw new PresetError("search の形が違います");
+  if (!isObject(search)) throw new PresetError("preset.badSearch");
   if (!Array.isArray(search.channels) || search.channels.length === 0) {
-    throw new PresetError("search.channels がありません");
+    throw new PresetError("preset.noChannels");
   }
   const channels = search.channels.map((ch) => {
     if (!isObject(ch) || !CHANNEL_ID_FORMAT.test(ch.id ?? "")) {
-      throw new PresetError(`チャンネル ID が不正です: ${ch?.id}`);
+      throw new PresetError("preset.badChannelId", { id: ch?.id });
     }
     if (ch.default != null && !labels.has(ch.default)) {
-      throw new PresetError(`default が items にありません: ${ch.default}`);
+      throw new PresetError("preset.badDefault", { default: ch.default });
     }
     if (ch.priority != null && !Number.isFinite(ch.priority)) {
-      throw new PresetError(`priority は数にしてください: ${ch.id}`);
+      throw new PresetError("preset.badPriority", { id: ch.id });
     }
     const pages = ch.pages ?? 1;
     if (!Number.isInteger(pages) || pages < 1 || pages > MAX_PAGES) {
-      throw new PresetError(`pages は 1〜${MAX_PAGES} の整数にしてください: ${ch.id}`);
+      throw new PresetError("preset.badPages", { max: MAX_PAGES, id: ch.id });
     }
     return { id: ch.id, default: ch.default ?? null, priority: ch.priority ?? 0, pages };
   });
   const exclude = search.exclude ?? [];
-  if (!isStringArray(exclude)) throw new PresetError("search.exclude は文字列の配列にしてください");
+  if (!isStringArray(exclude)) throw new PresetError("preset.badExclude");
   const strip = search.strip ?? [];
-  if (!Array.isArray(strip)) throw new PresetError("search.strip は配列にしてください");
+  if (!Array.isArray(strip)) throw new PresetError("preset.badStrip");
   const duplicates = search.duplicates ?? "first";
   if (duplicates !== "first" && duplicates !== "all") {
-    throw new PresetError(`search.duplicates は first か all です: ${duplicates}`);
+    throw new PresetError("preset.badDuplicates", { duplicates });
   }
   return {
     channels,
@@ -151,24 +158,24 @@ function parseSearch(search, labels) {
 
 export function parsePreset(json) {
   try {
-    if (!isObject(json)) throw new PresetError("JSON のオブジェクトではありません");
-    if (typeof json.name !== "string" || !json.name) throw new PresetError("name がありません");
-    if (!Array.isArray(json.items)) throw new PresetError("items がありません");
+    if (!isObject(json)) throw new PresetError("preset.notObject");
+    if (typeof json.name !== "string" || !json.name) throw new PresetError("preset.noName");
+    if (!Array.isArray(json.items)) throw new PresetError("preset.noItems");
     const kind = json.search == null ? "videos" : "channels";
     const items = json.items.map((item) => {
       if (!isObject(item) || typeof item.label !== "string" || !item.label) {
-        throw new PresetError("label のない候補があります");
+        throw new PresetError("preset.noLabel");
       }
       if (kind === "videos") {
         if (!VIDEO_ID_FORMAT.test(item.video_id ?? "")) {
-          throw new PresetError(`動画 ID が不正です: ${item.label}`);
+          throw new PresetError("preset.badVideoId", { label: item.label });
         }
         return { label: item.label, videoId: item.video_id, title: item.title ?? "" };
       }
       const aliases = item.aliases ?? [item.label];
-      if (!isStringArray(aliases)) throw new PresetError(`aliases が不正です: ${item.label}`);
+      if (!isStringArray(aliases)) throw new PresetError("preset.badAliases", { label: item.label });
       if (item.auto != null && typeof item.auto !== "boolean") {
-        throw new PresetError(`auto は true か false にしてください: ${item.label}`);
+        throw new PresetError("preset.badAuto", { label: item.label });
       }
       return { label: item.label, aliases, auto: item.auto ?? true };
     });
@@ -176,7 +183,7 @@ export function parsePreset(json) {
       try {
         new Intl.DateTimeFormat("en-CA", { timeZone: json.timezone });
       } catch {
-        throw new PresetError(`timezone が不正です: ${json.timezone}`);
+        throw new PresetError("preset.badTimezone", { timezone: json.timezone });
       }
     }
     const preset = {
@@ -190,7 +197,7 @@ export function parsePreset(json) {
     }
     return { ok: true, preset };
   } catch (e) {
-    if (e instanceof PresetError) return { ok: false, error: e.message };
+    if (e instanceof PresetError) return { ok: false, error: e.message, params: e.params };
     throw e;
   }
 }

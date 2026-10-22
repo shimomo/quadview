@@ -7,6 +7,7 @@
     <meta
       name="description"
       content="YouTube の動画やライブを、1つの画面に最大4枠で並べて見るツール。"
+      data-i18n-attrs="content:page.description"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
@@ -17,15 +18,19 @@
   <body>
     <header class="bar">
       <h1>QuadView</h1>
-      <nav id="groups" aria-label="候補"></nav>
+      <nav id="groups" aria-label="候補" data-i18n-attrs="aria-label:bar.groups"></nav>
       <span id="notice" class="notice" role="status"></span>
-      <button id="paste-open" class="pill" type="button">URL を貼る</button>
-      <button id="refresh" class="pill" type="button" title="キャッシュを捨てて、今の配信を YouTube に問い合わせ直す">探し直す</button>
+      <button id="paste-open" class="pill" type="button" data-i18n="bar.paste">URL を貼る</button>
+      <button id="refresh" class="pill" type="button" title="キャッシュを捨てて、今の配信を YouTube に問い合わせ直す" data-i18n="bar.refresh" data-i18n-attrs="title:bar.refreshTitle">探し直す</button>
       <span id="updated" class="updated"></span>
-      <button id="settings-open" class="pill" type="button">設定</button>
+      <button id="settings-open" class="pill" type="button" data-i18n="bar.settings">設定</button>
       <span class="links">
-        <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 利用規約</a>
-        ・ <a href="privacy.html">利用条件とプライバシー</a>
+        <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener" data-i18n="bar.terms">YouTube 利用規約</a>
+        ・ <a id="privacy-link" href="privacy.html" data-i18n="bar.privacy" data-i18n-attrs="href:bar.privacyHref">利用条件とプライバシー</a>
+        ・ <select id="lang" aria-label="言語" data-i18n-attrs="aria-label:bar.language">
+          <option value="ja">日本語</option>
+          <option value="en">English</option>
+        </select>
       </span>
     </header>
     <main id="grid">
@@ -37,47 +42,47 @@
 
     <dialog id="paste">
       <form id="paste-form">
-        <label for="paste-url">YouTube の動画・ライブの URL</label>
+        <label for="paste-url" data-i18n="paste.label">YouTube の動画・ライブの URL</label>
         <input id="paste-url" type="text" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" />
-        <p id="paste-error" class="error" hidden>YouTube の動画の URL ではありません。</p>
+        <p id="paste-error" class="error" data-i18n="paste.invalid" hidden>YouTube の動画の URL ではありません。</p>
         <p id="paste-choose" hidden>
-          枠が埋まっています。入れる枠を選んでください:
-          <button type="button" data-slot="0">左上</button>
-          <button type="button" data-slot="1">右上</button>
-          <button type="button" data-slot="2">左下</button>
-          <button type="button" data-slot="3">右下</button>
+          <span data-i18n="paste.choose">枠が埋まっています。入れる枠を選んでください:</span>
+          <button type="button" data-slot="0" data-i18n="paste.slot0">左上</button>
+          <button type="button" data-slot="1" data-i18n="paste.slot1">右上</button>
+          <button type="button" data-slot="2" data-i18n="paste.slot2">左下</button>
+          <button type="button" data-slot="3" data-i18n="paste.slot3">右下</button>
         </p>
         <menu>
-          <button type="submit">入れる</button>
-          <button id="paste-cancel" type="button">やめる</button>
+          <button type="submit" data-i18n="paste.submit">入れる</button>
+          <button id="paste-cancel" type="button" data-i18n="paste.cancel">やめる</button>
         </menu>
       </form>
     </dialog>
 
     <dialog id="settings">
-      <h2>プリセット</h2>
+      <h2 data-i18n="settings.presets">プリセット</h2>
       <ul id="preset-list"></ul>
       <form id="preset-form">
-        <input id="preset-url" type="text" inputmode="url" placeholder="プリセット（JSON）の URL" autocomplete="off" />
-        <button type="submit">足す</button>
+        <input id="preset-url" type="text" inputmode="url" placeholder="プリセット（JSON）の URL" autocomplete="off" data-i18n-attrs="placeholder:settings.presetUrl" />
+        <button type="submit" data-i18n="settings.add">足す</button>
       </form>
       <p id="preset-error" class="error" hidden></p>
 
-      <h2>YouTube API キー</h2>
-      <p class="help">
+      <h2 data-i18n="settings.key">YouTube API キー</h2>
+      <p class="help" data-i18n-html="settings.keyHelp">
         チャンネルのプリセットから「今日の配信」を探すのに使います。キーはこのブラウザにだけ保存し、YouTube（googleapis.com）への問い合わせにだけ使います。
         <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud のコンソール</a>で作り、
         アプリケーションの制限を「ウェブサイト」で <code>https://shimomo.github.io/*</code> に、API の制限を「YouTube Data API v3」だけにしてください。
       </p>
       <form id="key-form">
-        <input id="key-input" type="password" placeholder="API キー" autocomplete="off" />
-        <button type="submit">保存</button>
-        <button id="key-clear" type="button">消す</button>
+        <input id="key-input" type="password" placeholder="API キー" autocomplete="off" data-i18n-attrs="placeholder:settings.keyPlaceholder" />
+        <button type="submit" data-i18n="settings.save">保存</button>
+        <button id="key-clear" type="button" data-i18n="settings.clear">消す</button>
       </form>
       <p id="key-status" class="help"></p>
 
       <menu>
-        <button id="settings-close" type="button">閉じる</button>
+        <button id="settings-close" type="button" data-i18n="settings.close">閉じる</button>
       </menu>
     </dialog>
   </body>
