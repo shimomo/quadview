@@ -105,4 +105,4 @@ QuadView は YouTube API Services を使っています。使うことで [YouTu
 
 ## ライセンス
 
-[MIT](LICENSE)
+QuadView は [MIT license](LICENSE) の元で公開されています。
