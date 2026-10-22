@@ -92,6 +92,8 @@ export function embedUrl(videoId) {
 // A preset is JSON someone wrote: a list of videos, or channels plus rules that sort their
 // streams into items. It never holds data fetched from the YouTube API.
 
+// Upload pages (50 each) a channel may ask to be read: 10 pages are 20 units a search.
+export const MAX_PAGES = 10;
 const VIDEO_ID_FORMAT = /^[\w-]{11}$/;
 const CHANNEL_ID_FORMAT = /^UC[\w-]{22}$/;
 
@@ -124,7 +126,11 @@ function parseSearch(search, labels) {
     if (ch.priority != null && !Number.isFinite(ch.priority)) {
       throw new PresetError(`priority は数にしてください: ${ch.id}`);
     }
-    return { id: ch.id, default: ch.default ?? null, priority: ch.priority ?? 0 };
+    const pages = ch.pages ?? 1;
+    if (!Number.isInteger(pages) || pages < 1 || pages > MAX_PAGES) {
+      throw new PresetError(`pages は 1〜${MAX_PAGES} の整数にしてください: ${ch.id}`);
+    }
+    return { id: ch.id, default: ch.default ?? null, priority: ch.priority ?? 0, pages };
   });
   const exclude = search.exclude ?? [];
   if (!isStringArray(exclude)) throw new PresetError("search.exclude は文字列の配列にしてください");
