@@ -53,18 +53,23 @@ function toStream(item) {
   };
 }
 
-// Live, upcoming and recently ended streams among each channel's latest 50 uploads.
-// A channel that is not found is skipped; any other error stops the search.
-export async function fetchStreams(key, channelIds, fetchImpl = fetch) {
+// Live, upcoming and recently ended streams among each channel's latest uploads: 50 per
+// page, `pages` pages for a channel that books its streams far ahead (uploads are ordered
+// by creation). A channel is an id or { id, pages }. A channel that is not found is
+// skipped; any other error stops the search.
+export async function fetchStreams(key, channels, fetchImpl = fetch) {
   const videoIds = [];
-  for (const channelId of channelIds) {
-    const body = await get(
-      fetchImpl,
-      "playlistItems",
-      { part: "contentDetails", maxResults: String(PAGE), playlistId: `UU${channelId.slice(2)}` },
-      key,
-    );
-    for (const item of body?.items ?? []) videoIds.push(item.contentDetails.videoId);
+  for (const channel of channels) {
+    const { id, pages = 1 } = typeof channel === "string" ? { id: channel } : channel;
+    let pageToken;
+    for (let page = 0; page < pages; page++) {
+      const params = { part: "contentDetails", maxResults: String(PAGE), playlistId: `UU${id.slice(2)}` };
+      if (pageToken) params.pageToken = pageToken;
+      const body = await get(fetchImpl, "playlistItems", params, key);
+      for (const item of body?.items ?? []) videoIds.push(item.contentDetails.videoId);
+      pageToken = body?.nextPageToken;
+      if (!pageToken) break;
+    }
   }
   return fetchVideos(key, videoIds, fetchImpl);
 }

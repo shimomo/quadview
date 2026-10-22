@@ -163,3 +163,33 @@ test("fetchVideos leaves plain videos out", async () => {
   const got = await fetchVideos(KEY, Object.keys(videos), fetchImpl);
   assert.deepEqual(got.map((s) => [s.videoId, s.ended]), [["c0000000002", true]]);
 });
+
+test("fetchStreams reads more upload pages when a channel asks for them", async () => {
+  const pages = { "": ["d0000000001"], p2: ["d0000000002"], p3: ["d0000000003"] };
+  const next = { "": "p2", p2: "p3", p3: "p4" };
+  const seen = [];
+  const { fetchImpl } = fakeApi({}, {}, {
+    playlistItems: (u) => {
+      const token = u.searchParams.get("pageToken") ?? "";
+      seen.push(token);
+      return response(200, {
+        items: (pages[token] ?? []).map((videoId) => ({ contentDetails: { videoId } })),
+        nextPageToken: next[token],
+      });
+    },
+  });
+  await fetchStreams(KEY, [{ id: CH(1), pages: 3 }], fetchImpl);
+  assert.deepEqual(seen, ["", "p2", "p3"]);
+});
+
+test("fetchStreams stops paging when there is no next page", async () => {
+  const seen = [];
+  const { fetchImpl } = fakeApi({}, {}, {
+    playlistItems: (u) => {
+      seen.push(u.searchParams.get("pageToken") ?? "");
+      return response(200, { items: [] });
+    },
+  });
+  await fetchStreams(KEY, [{ id: CH(1), pages: 5 }, CH(2)], fetchImpl);
+  assert.deepEqual(seen, ["", ""]);
+});

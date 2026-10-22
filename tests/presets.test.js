@@ -46,7 +46,7 @@ test("parsePreset accepts a channel preset", () => {
   assert.ok(r.preset.search.after instanceof RegExp);
   assert.equal(r.preset.search.duplicates, "first");
   assert.deepEqual(r.preset.search.exclude, ["予告"]);
-  assert.deepEqual(r.preset.search.channels[1], { id: CH(2), default: null, priority: 0 });
+  assert.deepEqual(r.preset.search.channels[1], { id: CH(2), default: null, priority: 0, pages: 1 });
 });
 
 function rejects(name, json) {
@@ -142,4 +142,12 @@ test("withVideoStatus marks live, upcoming and ended videos", async () => {
   assert.equal(isStale(got[0], now), false); // known to be on air, however long
   assert.equal(isLive(got[2], now), false);
   assert.equal(isStale(got[2], now), true);
+});
+
+test("parsePreset reads pages, 1 by default, 1 to 10", () => {
+  const withPages = (pages) =>
+    parsePreset({ ...CHANNEL_PRESET, search: { ...CHANNEL_PRESET.search, channels: [{ id: CH(1), pages }] } });
+  assert.equal(parsePreset(CHANNEL_PRESET).preset.search.channels[0].pages, 1);
+  assert.equal(withPages(8).preset.search.channels[0].pages, 8);
+  for (const bad of [0, 11, 2.5, "3"]) assert.equal(withPages(bad).ok, false, String(bad));
 });

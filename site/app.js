@@ -204,7 +204,7 @@ async function search(entry, preset, key) {
       return [];
     }
     try {
-      streams = await fetchStreams(key, preset.search.channels.map((ch) => ch.id));
+      streams = await fetchStreams(key, preset.search.channels);
     } catch (e) {
       if (!(e instanceof SearchError)) throw e;
       entry.status = e.kind;
