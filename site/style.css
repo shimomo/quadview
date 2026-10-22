@@ -62,6 +62,10 @@ a {
   gap: 4px;
 }
 
+.group[hidden] {
+  display: none;
+}
+
 .group .heading {
   color: var(--muted);
   font-size: 11px;
@@ -232,6 +236,18 @@ dialog menu {
   gap: 6px;
   padding: 3px 0;
   border-bottom: 1px solid #333;
+}
+
+#preset-list label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+#preset-list label input {
+  width: auto;
+  margin: 0;
 }
 
 #preset-list .url {
