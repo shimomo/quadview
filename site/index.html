@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QuadView</title>
+    <meta
+      name="description"
+      content="YouTube の動画やライブを、1つの画面に最大4枠で並べて見るツール。"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="bar">
+      <h1>QuadView</h1>
+      <nav id="groups" aria-label="候補"></nav>
+      <span id="notice" class="notice" role="status"></span>
+      <button id="paste-open" class="pill" type="button">URL を貼る</button>
+      <button id="settings-open" class="pill" type="button">設定</button>
+      <span class="links">
+        <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 利用規約</a>
+        ・ <a href="privacy.html">利用条件とプライバシー</a>
+      </span>
+    </header>
+    <main id="grid">
+      <div class="tile"></div>
+      <div class="tile"></div>
+      <div class="tile"></div>
+      <div class="tile"></div>
+    </main>
+
+    <dialog id="paste">
+      <form id="paste-form">
+        <label for="paste-url">YouTube の動画・ライブの URL</label>
+        <input id="paste-url" type="text" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" />
+        <p id="paste-error" class="error" hidden>YouTube の動画の URL ではありません。</p>
+        <p id="paste-choose" hidden>
+          枠が埋まっています。入れる枠を選んでください:
+          <button type="button" data-slot="0">左上</button>
+          <button type="button" data-slot="1">右上</button>
+          <button type="button" data-slot="2">左下</button>
+          <button type="button" data-slot="3">右下</button>
+        </p>
+        <menu>
+          <button type="submit">入れる</button>
+          <button id="paste-cancel" type="button">やめる</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="settings">
+      <h2>プリセット</h2>
+      <ul id="preset-list"></ul>
+      <form id="preset-form">
+        <input id="preset-url" type="text" inputmode="url" placeholder="プリセット（JSON）の URL" autocomplete="off" />
+        <button type="submit">足す</button>
+      </form>
+      <p id="preset-error" class="error" hidden></p>
+
+      <h2>YouTube API キー</h2>
+      <p class="help">
+        チャンネルのプリセットから「今日の配信」を探すのに使います。キーはこのブラウザにだけ保存し、YouTube（googleapis.com）への問い合わせにだけ使います。
+        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud のコンソール</a>で作り、
+        アプリケーションの制限を「ウェブサイト」で <code>https://shimomo.github.io/*</code> に、API の制限を「YouTube Data API v3」だけにしてください。
+      </p>
+      <form id="key-form">
+        <input id="key-input" type="password" placeholder="API キー" autocomplete="off" />
+        <button type="submit">保存</button>
+        <button id="key-clear" type="button">消す</button>
+      </form>
+      <p id="key-status" class="help"></p>
+
+      <menu>
+        <button id="settings-close" type="button">閉じる</button>
+      </menu>
+    </dialog>
+  </body>
+</html>
