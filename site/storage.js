@@ -3,12 +3,14 @@
 //
 //   localStorage   quadview.presets      the preset URLs added in the settings
 //                  quadview.apiKey       the person's YouTube API key
+//                  quadview.hidden       preset URLs whose buttons are hidden from the bar
 //   sessionStorage quadview.cache.<url>  a channel preset's search result, for 15 minutes
 
 export const CACHE_MINUTES = 15;
 
 const PRESETS = "quadview.presets";
 const KEY = "quadview.apiKey";
+const HIDDEN = "quadview.hidden";
 const CACHE = "quadview.cache.";
 
 // Reading globalThis.localStorage can itself throw (blocked site data).
@@ -60,6 +62,15 @@ export function loadPresetUrls(backend = local()) {
 
 export function savePresetUrls(urls, backend = local()) {
   write(backend, PRESETS, JSON.stringify(urls));
+}
+
+export function loadHidden(backend = local()) {
+  const urls = readJson(backend, HIDDEN);
+  return Array.isArray(urls) ? urls.filter((u) => typeof u === "string") : [];
+}
+
+export function saveHidden(urls, backend = local()) {
+  write(backend, HIDDEN, JSON.stringify(urls));
 }
 
 // The key entered in this visit, so that it works even when it cannot be stored.

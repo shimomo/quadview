@@ -17,9 +17,11 @@ import {
 } from "./logic.js";
 import {
   loadCache,
+  loadHidden,
   loadKey,
   loadPresetUrls,
   saveCache,
+  saveHidden,
   saveKey,
   savePresetUrls,
 } from "./storage.js";
@@ -48,6 +50,8 @@ const entries = new Map();
 // Candidate key -> candidate, kept while its preset is loaded so that a tile showing it
 // stays put even if a later search no longer lists it.
 const known = new Map();
+// Presets loaded but kept out of the bar (their tiles stay as they are).
+const hidden = new Set(loadHidden());
 
 const formatters = new Map();
 function timeIn(timeZone, iso) {
@@ -118,6 +122,7 @@ function makeGroup(entry) {
   const heading = document.createElement("span");
   heading.className = "heading";
   group.append(heading);
+  group.hidden = hidden.has(entry.url);
   groupsNav.append(group);
   entry.group = group;
 }
@@ -182,9 +187,22 @@ function renderButtons() {
 
 function renderNotice() {
   const notice = document.getElementById("notice");
-  notice.textContent = entries.size
-    ? ""
-    : "設定からプリセットを足すと候補が出ます。URL を貼って見ることもできます";
+  if (!entries.size) {
+    notice.textContent = "設定からプリセットを足すと候補が出ます。URL を貼って見ることもできます";
+  } else if ([...entries.keys()].every((url) => hidden.has(url))) {
+    notice.textContent = "すべてのプリセットを隠しています（設定で表示できます）";
+  } else {
+    notice.textContent = "";
+  }
+}
+
+function setHidden(url, hide) {
+  if (hide) hidden.add(url);
+  else hidden.delete(url);
+  saveHidden([...hidden]);
+  const entry = entries.get(url);
+  if (entry) entry.group.hidden = hide;
+  renderNotice();
 }
 
 function update(next) {
@@ -277,6 +295,7 @@ function removeEntry(url) {
   if (!entry) return;
   entry.group.remove();
   entries.delete(url);
+  if (hidden.delete(url)) saveHidden([...hidden]);
   const prefix = `${url}#`;
   for (const key of [...known.keys()]) if (key.startsWith(prefix)) known.delete(key);
   savePresetUrls([...entries.keys()]);
@@ -301,11 +320,17 @@ function renderSettings() {
     const status = document.createElement("span");
     status.textContent = entry.status === "ok" ? "" : (STATUS_TEXT[entry.status] ?? entry.status);
     status.className = "help";
+    const show = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !hidden.has(entry.url);
+    box.addEventListener("change", () => setHidden(entry.url, !box.checked));
+    show.append(box, "表示");
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "外す";
     remove.addEventListener("click", () => removeEntry(entry.url));
-    li.append(name, url, status, remove);
+    li.append(name, url, status, show, remove);
     list.append(li);
   }
   document.getElementById("key-status").textContent = loadKey()
@@ -415,7 +440,10 @@ async function main() {
     return;
   }
   await Promise.allSettled(urls.map((url) => load(addEntry(url))));
-  const all = [...entries.values()].flatMap((entry) => entry.candidates);
+  // Hidden presets do not fill tiles on their own either.
+  const all = [...entries.values()]
+    .filter((entry) => !hidden.has(entry.url))
+    .flatMap((entry) => entry.candidates);
   // Fill only the free tiles: something pasted while the presets loaded stays.
   const kept = slots.filter((key) => key !== null);
   update(assignSlots(slots, [...kept, ...defaultSelection(all, new Date())]));

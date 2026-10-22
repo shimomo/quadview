@@ -100,3 +100,14 @@ test("an expired cache entry is removed when read", () => {
   assert.equal(loadCache("https://a.example/1.json", later(15), m), null);
   assert.equal(m.data.has("quadview.cache.https://a.example/1.json"), false);
 });
+
+test("hidden presets round trip", async () => {
+  const { loadHidden, saveHidden } = await import("../site/storage.js");
+  const m = memory();
+  assert.deepEqual(loadHidden(m), []);
+  saveHidden(["https://a.example/1.json"], m);
+  assert.deepEqual(loadHidden(m), ["https://a.example/1.json"]);
+  assert.ok(m.data.has("quadview.hidden"));
+  assert.deepEqual(loadHidden(throwing), []);
+  saveHidden(["x"], throwing);
+});
