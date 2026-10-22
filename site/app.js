@@ -16,6 +16,8 @@ import {
   withVideoStatus,
 } from "./logic.js";
 import {
+  cacheTime,
+  clearCache,
   loadCache,
   loadHidden,
   loadKey,
@@ -196,6 +198,26 @@ function renderNotice() {
   }
 }
 
+// The age of what the buttons show: the oldest search result in use.
+function renderUpdated() {
+  const times = [...entries.keys()].map((url) => cacheTime(url)).filter((t) => t !== null);
+  document.getElementById("updated").textContent = times.length
+    ? `最終更新 ${timeIn(null, new Date(Math.min(...times)).toISOString())}`
+    : "";
+}
+
+// Asks YouTube again for every preset; tiles keep playing, only the buttons change.
+function setUpRefresh() {
+  const button = document.getElementById("refresh");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    clearCache();
+    await Promise.allSettled([...entries.values()].map((entry) => load(entry)));
+    renderUpdated();
+    button.disabled = false;
+  });
+}
+
 function setHidden(url, hide) {
   if (hide) hidden.add(url);
   else hidden.delete(url);
@@ -363,15 +385,17 @@ function setUpSettings() {
     const entry = addEntry(url);
     savePresetUrls([...entries.keys()]);
     renderSettings();
-    load(entry); // tiles are not filled automatically after the page has opened
+    load(entry).then(renderUpdated); // tiles are not filled automatically after opening
   });
   const keyInput = document.getElementById("key-input");
   // A new key searches the channel presets again (tiles are not filled automatically).
   const researchChannels = () => {
-    for (const entry of entries.values()) {
-      const failed = ["nokey", "key", "quota", "network", "http"].includes(entry.status);
-      if (failed || entry.kind === "videos") load(entry);
-    }
+    const again = [...entries.values()].filter(
+      (entry) =>
+        ["nokey", "key", "quota", "network", "http"].includes(entry.status) ||
+        entry.kind === "videos",
+    );
+    Promise.allSettled(again.map((entry) => load(entry))).then(renderUpdated);
   };
   document.getElementById("key-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -427,6 +451,7 @@ function setUpPaste() {
 async function main() {
   setUpPaste();
   setUpSettings();
+  setUpRefresh();
   renderNotice();
   renderTiles();
   const urls = loadPresetUrls();
@@ -440,6 +465,7 @@ async function main() {
     return;
   }
   await Promise.allSettled(urls.map((url) => load(addEntry(url))));
+  renderUpdated();
   // Hidden presets do not fill tiles on their own either.
   const all = [...entries.values()]
     .filter((entry) => !hidden.has(entry.url))

@@ -97,3 +97,21 @@ export function loadCache(url, now, backend = session()) {
 export function saveCache(url, streams, now, backend = session()) {
   write(backend, CACHE + url, JSON.stringify({ at: now.getTime(), streams }));
 }
+
+// When the search result of a preset was made (ms), or null.
+export function cacheTime(url, backend = session()) {
+  const entry = readJson(backend, CACHE + url);
+  return typeof entry?.at === "number" ? entry.at : null;
+}
+
+// Forgets every search result, so that the next load asks YouTube again.
+export function clearCache(backend = session()) {
+  try {
+    const names = [];
+    for (let i = 0; i < backend.length; i++) {
+      const name = backend.key(i);
+      if (name?.startsWith(CACHE)) names.push(name);
+    }
+    for (const name of names) backend.removeItem(name);
+  } catch {}
+}

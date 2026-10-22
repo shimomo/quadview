@@ -111,3 +111,32 @@ test("hidden presets round trip", async () => {
   assert.deepEqual(loadHidden(throwing), []);
   saveHidden(["x"], throwing);
 });
+
+// A storage that can list its keys, like sessionStorage.
+function listing() {
+  const m = memory();
+  Object.defineProperty(m, "length", { get: () => m.data.size });
+  m.key = (i) => [...m.data.keys()][i] ?? null;
+  return m;
+}
+
+test("clearCache removes every search result and nothing else", async () => {
+  const { clearCache } = await import("../site/storage.js");
+  const m = listing();
+  saveCache("https://a.example/1.json", STREAMS, NOW, m);
+  saveCache("https://b.example/2.json", STREAMS, NOW, m);
+  m.setItem("other", "keep");
+  clearCache(m);
+  assert.deepEqual([...m.data.keys()], ["other"]);
+  clearCache(throwing);
+  clearCache(undefined);
+});
+
+test("cacheTime tells when a search result was made", async () => {
+  const { cacheTime } = await import("../site/storage.js");
+  const m = memory();
+  assert.equal(cacheTime("https://a.example/1.json", m), null);
+  saveCache("https://a.example/1.json", STREAMS, NOW, m);
+  assert.equal(cacheTime("https://a.example/1.json", m), NOW.getTime());
+  assert.equal(cacheTime("https://a.example/1.json", throwing), null);
+});
