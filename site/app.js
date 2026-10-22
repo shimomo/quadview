@@ -15,31 +15,40 @@ import {
   videoIdFromUrl,
   withVideoStatus,
 } from "./logic.js";
+import { localeOf, pickLang, t as translate } from "./i18n.js";
 import {
   cacheTime,
   clearCache,
   loadCache,
   loadHidden,
   loadKey,
+  loadLang,
   loadPresetUrls,
   saveCache,
   saveHidden,
   saveKey,
+  saveLang,
   savePresetUrls,
 } from "./storage.js";
 import { fetchStreams, fetchVideos, SearchError } from "./youtube.js";
 
 const PASTED = "url:";
-const STATUS_TEXT = {
-  loading: "読み込み中",
-  error: "読み込めません",
-  nokey: "API キーが必要",
-  key: "API キーを確かめてください",
-  quota: "今日の検索の上限に達しました",
-  network: "通信エラー",
-  http: "検索に失敗しました",
-  safe: "読み込んでいません（?safe）",
+
+let lang = pickLang(loadLang(), navigator.languages ?? [navigator.language]);
+const t = (key, params) => translate(lang, key, params);
+const statusText = (status) => {
+  const text = t(`status.${status}`);
+  return text === `status.${status}` ? status : text;
 };
+// A load failure is kept as a key of i18n.js (or plain text), so that it is worded again
+// when the language changes.
+class LoadError extends Error {
+  constructor(key, params) {
+    super(key);
+    this.params = params;
+  }
+}
+const errorText = (error) => (error && typeof error === "object" ? t(error.key, error.params) : error);
 
 const tiles = [...document.querySelectorAll(".tile")];
 const groupsNav = document.getElementById("groups");
@@ -55,13 +64,13 @@ const known = new Map();
 // Presets loaded but kept out of the bar (their tiles stay as they are).
 const hidden = new Set(loadHidden());
 
-const formatters = new Map();
+let formatters = new Map();
 function timeIn(timeZone, iso) {
   const tz = timeZone ?? "";
   if (!formatters.has(tz)) {
     formatters.set(
       tz,
-      new Intl.DateTimeFormat("ja-JP", {
+      new Intl.DateTimeFormat(localeOf(lang), {
         timeZone: timeZone ?? undefined,
         hour: "2-digit",
         minute: "2-digit",
@@ -92,7 +101,8 @@ function renderTiles() {
     if (!content) {
       const empty = document.createElement("div");
       empty.className = "empty";
-      empty.textContent = "上のボタンを押すと入る";
+      empty.textContent = t("tile.empty");
+      empty.dataset.i18n = "tile.empty";
       tile.append(empty);
       return;
     }
@@ -103,7 +113,8 @@ function renderTiles() {
       const close = document.createElement("button");
       close.type = "button";
       close.textContent = "✕";
-      close.title = "この枠を空ける";
+      close.title = t("tile.close");
+      close.dataset.i18nAttrs = "title:tile.close";
       close.addEventListener("click", () => update(slots.map((k, j) => (j === i ? null : k))));
       label.append(close);
     }
@@ -138,8 +149,8 @@ function fillGroup(entry) {
   if (entry.status !== "ok") {
     const mark = document.createElement("span");
     mark.className = "mark";
-    mark.textContent = STATUS_TEXT[entry.status] ?? entry.status;
-    if (entry.error) mark.title = entry.error;
+    mark.textContent = statusText(entry.status);
+    if (entry.error) mark.title = errorText(entry.error);
     heading.append(mark);
   }
   group.replaceChildren(heading);
@@ -172,16 +183,16 @@ function renderButtons() {
       const when = button.lastElementChild;
       if (c.state === "ended") {
         when.className = "when";
-        when.textContent = "終了";
+        when.textContent = t("when.ended");
       } else if (c.start == null) {
         when.className = "";
         when.textContent = "";
       } else if (isLive(c, now)) {
         when.className = "live";
-        when.textContent = "LIVE";
+        when.textContent = t("when.live");
       } else {
         when.className = "when";
-        when.textContent = `${timeIn(entry.timezone, c.start)}〜`;
+        when.textContent = t("when.from", { time: timeIn(entry.timezone, c.start) });
       }
     }
   }
@@ -190,9 +201,9 @@ function renderButtons() {
 function renderNotice() {
   const notice = document.getElementById("notice");
   if (!entries.size) {
-    notice.textContent = "設定からプリセットを足すと候補が出ます。URL を貼って見ることもできます";
+    notice.textContent = t("notice.noPresets");
   } else if ([...entries.keys()].every((url) => hidden.has(url))) {
-    notice.textContent = "すべてのプリセットを隠しています（設定で表示できます）";
+    notice.textContent = t("notice.allHidden");
   } else {
     notice.textContent = "";
   }
@@ -202,7 +213,7 @@ function renderNotice() {
 function renderUpdated() {
   const times = [...entries.keys()].map((url) => cacheTime(url)).filter((t) => t !== null);
   document.getElementById("updated").textContent = times.length
-    ? `最終更新 ${timeIn(null, new Date(Math.min(...times)).toISOString())}`
+    ? t("bar.updated", { time: timeIn(null, new Date(Math.min(...times)).toISOString()) })
     : "";
 }
 
@@ -282,7 +293,7 @@ async function load(entry) {
     const response = await fetch(entry.url, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const parsed = parsePreset(await response.json());
-    if (!parsed.ok) throw new Error(parsed.error);
+    if (!parsed.ok) throw new LoadError(parsed.error, parsed.params);
     const preset = parsed.preset;
     entry.name = preset.name;
     entry.kind = preset.kind;
@@ -295,7 +306,7 @@ async function load(entry) {
   } catch (e) {
     console.warn("preset failed:", entry.url, e);
     entry.status = "error";
-    entry.error = String(e?.message ?? e);
+    entry.error = e instanceof LoadError ? { key: e.message, params: e.params } : String(e?.message ?? e);
     entry.candidates = [];
   }
   for (const c of entry.candidates) known.set(c.key, c);
@@ -334,30 +345,30 @@ function renderSettings() {
   for (const entry of entries.values()) {
     const li = document.createElement("li");
     const name = document.createElement("b");
-    name.textContent = entry.name ?? "（名前なし）";
+    name.textContent = entry.name ?? t("settings.unnamed");
     const url = document.createElement("span");
     url.className = "url";
     url.textContent = entry.url;
     url.title = entry.url;
     const status = document.createElement("span");
-    status.textContent = entry.status === "ok" ? "" : (STATUS_TEXT[entry.status] ?? entry.status);
+    status.textContent = entry.status === "ok" ? "" : statusText(entry.status);
     status.className = "help";
     const show = document.createElement("label");
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = !hidden.has(entry.url);
     box.addEventListener("change", () => setHidden(entry.url, !box.checked));
-    show.append(box, "表示");
+    show.append(box, t("settings.show"));
     const remove = document.createElement("button");
     remove.type = "button";
-    remove.textContent = "外す";
+    remove.textContent = t("settings.remove");
     remove.addEventListener("click", () => removeEntry(entry.url));
     li.append(name, url, status, show, remove);
     list.append(li);
   }
   document.getElementById("key-status").textContent = loadKey()
-    ? "API キーを保存しています。"
-    : "API キーは保存されていません。";
+    ? t("settings.keySaved")
+    : t("settings.keyNone");
 }
 
 function setUpSettings() {
@@ -378,8 +389,8 @@ function setUpSettings() {
       valid = ["http:", "https:"].includes(new URL(url).protocol);
     } catch {}
     error.hidden = valid && !entries.has(url);
-    if (!valid) error.textContent = "http(s) の URL を入れてください。";
-    else if (entries.has(url)) error.textContent = "そのプリセットはもう読み込んでいます。";
+    if (!valid) error.textContent = t("settings.badUrl");
+    else if (entries.has(url)) error.textContent = t("settings.duplicate");
     if (!error.hidden) return;
     urlInput.value = "";
     const entry = addEntry(url);
@@ -429,7 +440,7 @@ function setUpPaste() {
     dialog.showModal();
   });
   document.getElementById("paste-cancel").addEventListener("click", () => dialog.close());
-  // "入れる" is the form's submit button, so Enter in the field also puts the video in.
+  // The "Add" button is the form's submit button, so Enter in the field also puts the video in.
   document.getElementById("paste-form").addEventListener("submit", (event) => {
     event.preventDefault();
     pending = videoIdFromUrl(input.value);
@@ -448,7 +459,43 @@ function setUpPaste() {
   }
 }
 
+// --- language ----------------------------------------------------------------------------
+
+// Static text carries data-i18n (its text), data-i18n-html (trusted markup of i18n.js) and
+// data-i18n-attrs ("attribute:key,...").
+function translatePage() {
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  }
+  for (const el of document.querySelectorAll("[data-i18n-attrs]")) {
+    for (const pair of el.dataset.i18nAttrs.split(",")) {
+      const [attribute, key] = pair.split(":");
+      el.setAttribute(attribute, t(key));
+    }
+  }
+}
+
+// Words made by the script are made again; the tiles' videos are not touched.
+function setUpLanguage() {
+  const select = document.getElementById("lang");
+  select.value = lang;
+  select.addEventListener("change", () => {
+    lang = pickLang(select.value);
+    saveLang(lang);
+    formatters = new Map();
+    translatePage();
+    for (const entry of entries.values()) fillGroup(entry);
+    renderNotice();
+    renderUpdated();
+    renderSettings();
+  });
+}
+
 async function main() {
+  translatePage();
+  setUpLanguage();
   setUpPaste();
   setUpSettings();
   setUpRefresh();

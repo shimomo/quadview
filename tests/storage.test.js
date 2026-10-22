@@ -4,9 +4,11 @@ import { test } from "node:test";
 import {
   loadCache,
   loadKey,
+  loadLang,
   loadPresetUrls,
   saveCache,
   saveKey,
+  saveLang,
   savePresetUrls,
 } from "../site/storage.js";
 
@@ -139,4 +141,13 @@ test("cacheTime tells when a search result was made", async () => {
   saveCache("https://a.example/1.json", STREAMS, NOW, m);
   assert.equal(cacheTime("https://a.example/1.json", m), NOW.getTime());
   assert.equal(cacheTime("https://a.example/1.json", throwing), null);
+});
+
+test("the chosen language is remembered, and a blocked storage is not an error", () => {
+  const backend = memory();
+  assert.equal(loadLang(backend), null);
+  saveLang("en", backend);
+  assert.equal(loadLang(backend), "en");
+  assert.doesNotThrow(() => saveLang("en", throwing));
+  assert.equal(loadLang(throwing), null);
 });

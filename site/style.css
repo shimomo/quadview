@@ -139,6 +139,14 @@ a {
   font-size: 11px;
 }
 
+.links select {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+}
+
 #grid {
   display: grid;
   grid-template-columns: repeat(2, var(--tile-w));
