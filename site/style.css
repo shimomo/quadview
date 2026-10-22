@@ -124,6 +124,16 @@ a {
   text-overflow: ellipsis;
 }
 
+.updated {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pill:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
 .links {
   color: var(--muted);
   font-size: 11px;
