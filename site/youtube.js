@@ -66,6 +66,11 @@ export async function fetchStreams(key, channelIds, fetchImpl = fetch) {
     );
     for (const item of body?.items ?? []) videoIds.push(item.contentDetails.videoId);
   }
+  return fetchVideos(key, videoIds, fetchImpl);
+}
+
+// The live / upcoming state of known videos (plain videos are left out). One unit per 50.
+export async function fetchVideos(key, videoIds, fetchImpl = fetch) {
   const streams = [];
   for (let i = 0; i < videoIds.length; i += PAGE) {
     const body = await get(
