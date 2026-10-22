@@ -55,4 +55,4 @@ Serve `site/` statically to run it (for example `python3 -m http.server -d site`
 
 ## License
 
-[MIT](LICENSE)
+QuadView is released under the [MIT license](LICENSE).
