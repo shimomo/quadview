@@ -123,6 +123,7 @@ function renderTiles() {
     frame.title = content.label;
     frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
     frame.allowFullscreen = true;
+    frame.referrerPolicy = "strict-origin-when-cross-origin";
     tile.append(label, frame);
   });
 }
